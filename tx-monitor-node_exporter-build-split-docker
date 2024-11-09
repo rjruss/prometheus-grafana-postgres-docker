@@ -1,0 +1,67 @@
+FROM monitor-img:latest AS monitor-node_exporter-img
+ARG USER_UID
+ARG USER_GID
+ARG TX_APP_STEP_VERSION
+ARG TX_APP_NODE_EXPORTER_VERSION
+#
+ARG TX_MONITOR_DIR
+ARG TX_MONITOR_APP_DIR
+ARG TX_CONTAINER_NAME
+ARG TX_STEP_HOST
+ARG TX_STEPPATH
+ARG TX_DB_HOST
+ARG TX_DB_PORT
+ARG TX_DB_SHARED_LOCATION
+ARG TX_POSTGRES_USER
+ARG TX_POSTGRES_DB
+ARG TX_SHARED_GROUP_NAME
+ARG MY_HOST_FQDN
+ARG TX_NODE_EXPORTER_PORT
+#node_exporter cert 8h for 8 hours
+ARG TX_NODE_EXPORTER_CERT_DUR
+#a certificate "needs renewal" when it has passed 2% of its allotted lifetime.
+ARG TX_NODE_EXPORTER_EXP_CHECK
+ENV TX_MONITOR_DIR=${TX_MONITOR_DIR} \
+    TX_MONITOR_APP_DIR=${TX_MONITOR_APP_DIR} \
+    TX_CONTAINER_NAME=${TX_CONTAINER_NAME} \
+    TX_STEP_HOST=${TX_STEP_HOST} \
+    TX_STEPPATH=${TX_STEPPATH} \
+    STEPPATH=${TX_STEPPATH} \
+    TX_DB_HOST=${TX_DB_HOST} \
+    TX_DB_PORT=${TX_DB_PORT} \
+    TX_DB_SHARED_LOCATION=${TX_DB_SHARED_LOCATION} \
+    TX_POSTGRES_USER=${TX_POSTGRES_USER} \
+    TX_POSTGRES_DB=${TX_POSTGRES_DB} \
+    TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME} \
+    MY_HOST_FQDN=${MY_HOST_FQDN} \
+    TX_NODE_EXPORTER_PORT=${TX_NODE_EXPORTER_PORT} \
+    TX_NODE_EXPORTER_CERT_DUR=${TX_NODE_EXPORTER_CERT_DUR} \
+    TX_NODE_EXPORTER_EXP_CHECK=${TX_NODE_EXPORTER_EXP_CHECK} 
+RUN wget https://dl.smallstep.com/gh-release/cli/gh-release-header/v${TX_APP_STEP_VERSION}/step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rpm -i step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rm -rf step-cli_${TX_APP_STEP_VERSION}_amd64.rpm
+RUN groupadd -g ${USER_GID} -r node_exporter1 \
+        && useradd -r node_exporter1 -g node_exporter1 -u ${USER_UID} -d /home/node_exporter1
+RUN usermod -aG $TX_SHARED_GROUP_NAME node_exporter1
+RUN mkdir -p /home/node_exporter1/cert /home/node_exporter1/.ssh /home/node_exporter1/.tok /home/node_exporter1/.postgresql /home/node_exporter1/startup  ${TX_MONITOR_DIR}/custom  
+RUN mkdir -p ${TX_DB_SHARED_LOCATION}
+ADD tx-monitor-node_exporter/config/start-node_exporter.sh /home/node_exporter1/startup/start-node_exporter.sh
+#ADD tx-monitor-node_exporter/config/renew-certs.sh /home/node_exporter1/startup/renew-certs.sh
+#ADD tx-monitor-node_exporter/config/app.ini ${TX_MONITOR_APP_DIR}/custom/app.ini
+WORKDIR ${TX_MONITOR_DIR}
+#RUN wget HTTP_LOCATION:/node_exporter/releases/download/v${TX_APP_NODE_EXPORTER_VERSION}/node_exporter-${TX_APP_NODE_EXPORTER_VERSION}-linux-amd64
+RUN wget -q https://github.com/prometheus/node_exporter/releases/download/v${TX_APP_NODE_EXPORTER_VERSION}/node_exporter-${TX_APP_NODE_EXPORTER_VERSION}.linux-amd64.tar.gz  \
+        && tar -zxvf node_exporter-${TX_APP_NODE_EXPORTER_VERSION}.linux-amd64.tar.gz \
+        && rm -rf node_exporter-${TX_APP_NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
+RUN ln -s node_exporter-${TX_APP_NODE_EXPORTER_VERSION}.linux-amd64  node_exporter
+RUN chmod 700 /home/node_exporter1/.ssh && touch /home/node_exporter1/.ssh/authorized_keys && chmod 600 /home/node_exporter1/.ssh/authorized_keys
+#RUN mv node_exporter-${TX_APP_NODE_EXPORTER_VERSION}-linux-amd64 node_exporter
+RUN chown -R node_exporter1:node_exporter1 /home/node_exporter1 \
+        && chown -R node_exporter1:node_exporter1 ${TX_DB_SHARED_LOCATION} \
+        && chown -R node_exporter1:node_exporter1 ${TX_MONITOR_DIR} \
+        && chmod 744 ${TX_MONITOR_DIR} \
+        && chmod 750 /home/node_exporter1/startup/*.sh
+ENV PATH="${PATH}:${TX_MONITOR_APP_DIR}"
+USER node_exporter1
+WORKDIR /home/node_exporter1
+CMD [ "/usr/bin/bash", "-c", "/home/node_exporter1/startup/start-node_exporter.sh"]

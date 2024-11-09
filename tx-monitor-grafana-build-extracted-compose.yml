@@ -1,0 +1,65 @@
+services:
+  tx-monitor-grafana-build:
+    container_name: monitor-grafana-run
+    image: monitor-grafana-img
+    build:
+      dockerfile: tx-monitor-grafana-build-split-docker
+      target: monitor-grafana-img
+      args:
+        #BASE BUILD
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_GID}
+        - TX_SHARED_ENV_GROUP=${TX_SHARED_ENV_GROUP}
+        - TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME}
+        - TX_SHARED_DIR=${TX_SHARED_DIR}
+        - TX_AGEDIR=${TX_AGEDIR}
+        - TX_AGEDIR_KEYS=${TX_AGEDIR_KEYS}
+        - TX_AGEDIR_INFO=${TX_AGEDIR_INFO}
+        - TX_APP_STEP_VERSION=${TX_APP_STEP_VERSION}
+        - TX_APP_GRAFANA_VERSION=${TX_APP_GRAFANA_VERSION}
+        #Container Specific
+        - TX_MONITOR_DIR=/srv
+        - TX_MONITOR_APP_DIR=/srv
+        - TX_STEP_HOST=${TX_STEP_HOST}
+        - TX_STEPPATH=/srv/grafana/.step
+        - TX_DB_HOST=monitor-postdb-run
+        - TX_DB_PORT=5432
+        - TX_POSTGRES_USER=${TX_POSTGRES_USER}
+        - TX_POSTGRES_DB=${TX_POSTGRES_DB}
+        - TX_DB_SHARED_LOCATION=/mnt/shared
+        #       - TX_GRAFANA_ADMIN_USER=${TX_GRAFANA_ADMIN_USER}
+        #       - TX_GRAFANA_USER_EMAIL=${TX_GRAFANA_USER_EMAIL}
+        - TX_GRAFANA_CERT_DUR=1h
+        - TX_CONTAINER_NAME=monitor-grafana-run
+        - TX_GRAFANA_PORT=${TX_GRAFANA_PORT}
+        - TX_GRAFANA_EXP_CHECK=20%
+    hostname: ${GRAFANA_HOST}
+    domainname: ${DOMAIN}
+    ports:
+      - "${TX_GRAFANA_PORT}:${TX_GRAFANA_PORT}"
+    networks:
+      - tx-monitor-net1
+    depends_on:
+#     tx-monitor-step-build:
+#       condition: service_started
+      tx-monitor-postdb-build:
+        condition: service_healthy
+    volumes:
+      - tx_monitor_keys_vol1:/srv/shared/.age/.keys:ro
+      - tx_monitor_info_vol1:/srv/shared/.age/.info:ro
+      - tx_monitor_grafana_vol1:/srv
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - shared:/mnt/shared
+    tty: true
+volumes:
+  tx_monitor_keys_vol1:
+    external: true
+  tx_monitor_info_vol1:
+    external: true
+  tx_monitor_grafana_vol1:
+    external: true
+  shared:
+networks:
+  tx-monitor-net1:
+    external: true

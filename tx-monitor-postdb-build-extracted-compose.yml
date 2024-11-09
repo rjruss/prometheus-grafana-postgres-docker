@@ -1,0 +1,70 @@
+services:
+  tx-monitor-postdb-build:
+    container_name: monitor-postdb-run
+    image: monitor-postdb-img
+    build:
+      dockerfile: tx-monitor-postdb-build-split-docker03
+      target: monitor-postdb-img
+      args:
+        #BASE BUILD
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_GID}
+        - TX_SHARED_ENV_GROUP=${TX_SHARED_ENV_GROUP}
+        - TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME}
+        - TX_SHARED_DIR=${TX_SHARED_DIR}
+        - TX_AGEDIR=${TX_AGEDIR}
+        - TX_AGEDIR_KEYS=${TX_AGEDIR_KEYS}
+        - TX_AGEDIR_INFO=${TX_AGEDIR_INFO}
+        - TX_APP_STEP_VERSION=${TX_APP_STEP_VERSION}
+        #Container Specific
+
+        #        - TX_APP_STEP_VERSION=0.27.2
+        - TX_MONITOR_DIR=/srv
+        - TX_MONITOR_APP_DIR=/srv/postdata
+        - TX_DB_SHARED_LOCATION=/mnt/shared
+        - TX_STEP_HOST=${TX_STEP_HOST}
+        - TX_STEPPATH=/srv/.step
+        - TX_CONTAINER_NAME=monitor-postdb-run
+        # Define client host to restrict access
+        - TX_ALLOWED_SUBNET=${TX_ALLOWED_SUBNET}
+        - TX_APP_POSTGRES_VERSION=${TX_APP_POSTGRES_VERSION}
+        - TX_POSTGRES_USER=${TX_POSTGRES_USER}
+        - TX_POSTGRES_DB=${TX_POSTGRES_DB}
+        #Postgres cert 168h for 7days
+        - TX_POST_CERT_DUR=1h
+        #a certificate "needs renewal" when it has passed 2% of its allotted lifetime.
+        - TX_POST_EXP_CHECK=50%
+    hostname: ${POSTDB_HOST}
+    domainname: ${DOMAIN}
+    #    ports:
+    #      - "5432:5432"
+    #      - "6432:5432"
+    networks:
+      - tx-monitor-net1
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-U", "{TX_POSTGRES_USER}", "-d", "${TX_POSTGRES_DB}"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 80s
+#   depends_on:
+#     tx-monitor-step-build:
+#       condition: service_started
+    volumes:
+      - tx_monitor_keys_vol1:/srv/shared/.age/.keys:ro
+      - tx_monitor_info_vol1:/srv/shared/.age/.info:ro
+      #      - pgdata:/var/lib/postgresql/data
+      - tx_monitor_pgdata_vol1:/srv
+      - shared:/mnt/shared
+    tty: true
+volumes:
+  tx_monitor_keys_vol1:
+    external: true
+  tx_monitor_info_vol1:
+    external: true
+  tx_monitor_pgdata_vol1:
+    external: true
+  shared:
+networks:
+  tx-monitor-net1:
+    external: true

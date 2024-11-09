@@ -1,0 +1,70 @@
+services:
+  tx-monitor-prometheus-build:
+    container_name: monitor-prometheus-run
+    image: monitor-prometheus-img
+    build:
+      dockerfile: tx-monitor-prometheus-build-split-docker
+      target: monitor-prometheus-img
+      args:
+        #BASE BUILD
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_GID}
+        - TX_SHARED_ENV_GROUP=${TX_SHARED_ENV_GROUP}
+        - TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME}
+        - TX_SHARED_DIR=${TX_SHARED_DIR}
+        - TX_AGEDIR=${TX_AGEDIR}
+        - TX_AGEDIR_KEYS=${TX_AGEDIR_KEYS}
+        - TX_AGEDIR_INFO=${TX_AGEDIR_INFO}
+        - TX_APP_STEP_VERSION=${TX_APP_STEP_VERSION}
+        - TX_APP_PROMETHEUS_VERSION=${TX_APP_PROMETHEUS_VERSION}
+        - TX_APP_ALERTMANAGER_VERSION=${TX_APP_ALERTMANAGER_VERSION}
+        #Container Specific
+        - TX_MONITOR_DIR=/srv
+        - TX_MONITOR_APP_DIR=/srv
+        - TX_STEP_HOST=${TX_STEP_HOST}
+        - TX_STEPPATH=/srv/.step
+        - TX_DB_HOST=monitor-postdb-run
+        - TX_DB_PORT=5432
+        - TX_POSTGRES_USER=${TX_POSTGRES_USER}
+        - TX_POSTGRES_DB=${TX_POSTGRES_DB}
+        - TX_DB_SHARED_LOCATION=/mnt/shared
+        #       - TX_PROMETHEUS_ADMIN_USER=${TX_PROMETHEUS_ADMIN_USER}
+        #       - TX_PROMETHEUS_USER_EMAIL=${TX_PROMETHEUS_USER_EMAIL}
+        - TX_PROMETHEUS_CERT_DUR=1h
+        - TX_PROMETHEUS_PORT=${TX_PROMETHEUS_PORT}
+        - TX_ALERTMANAGER_PORT=${TX_ALERTMANAGER_PORT}
+        - MY_HOST_FQDN=${MY_HOST_FQDN}
+        - TX_NODE_EXPORTER_PORT=${TX_NODE_EXPORTER_PORT}
+        - TX_CONTAINER_NAME=monitor-prometheus-run
+        - TX_PROMETHEUS_EXP_CHECK=25%
+    hostname: ${PROMETHEUS_HOST}
+    domainname: ${DOMAIN}
+    ports:
+      - "${TX_PROMETHEUS_PORT}:${TX_PROMETHEUS_PORT}"
+      - "${TX_ALERTMANAGER_PORT}:${TX_ALERTMANAGER_PORT}"
+    networks:
+      - tx-monitor-net1
+#   depends_on:
+#     tx-monitor-step-build:
+#       condition: service_started
+#     tx-monitor-postdb-build:
+#       condition: service_healthy
+    volumes:
+      - tx_monitor_keys_vol1:/srv/shared/.age/.keys:ro
+      - tx_monitor_info_vol1:/srv/shared/.age/.info:ro
+      - tx_monitor_prometheus_vol1:/srv
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - shared:/mnt/shared
+    tty: true
+volumes:
+  tx_monitor_keys_vol1:
+    external: true
+  tx_monitor_info_vol1:
+    external: true
+  tx_monitor_prometheus_vol1:
+    external: true
+  shared:
+networks:
+  tx-monitor-net1:
+    external: true

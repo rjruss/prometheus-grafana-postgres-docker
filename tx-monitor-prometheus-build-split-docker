@@ -1,0 +1,81 @@
+FROM monitor-img:latest AS monitor-prometheus-img
+ARG USER_UID
+ARG USER_GID
+ARG TX_APP_STEP_VERSION
+ARG TX_APP_PROMETHEUS_VERSION
+ARG TX_APP_ALERTMANAGER_VERSION
+
+#
+ARG TX_MONITOR_DIR
+ARG TX_MONITOR_APP_DIR
+ARG TX_CONTAINER_NAME
+ARG TX_STEP_HOST
+ARG TX_STEPPATH
+ARG TX_DB_HOST
+ARG TX_DB_PORT
+ARG TX_DB_SHARED_LOCATION
+ARG TX_POSTGRES_USER
+ARG TX_POSTGRES_DB
+ARG TX_SHARED_GROUP_NAME
+ARG TX_PROMETHEUS_PORT
+ARG TX_ALERTMANAGER_PORT
+ARG MY_HOST_FQDN=${MY_HOST_FQDN}
+ARG TX_NODE_EXPORTER_PORT=${TX_NODE_EXPORTER_PORT}
+#prometheus cert 8h for 8 hours
+ARG TX_PROMETHEUS_CERT_DUR
+#a certificate "needs renewal" when it has passed 2% of its allotted lifetime.
+ARG TX_PROMETHEUS_EXP_CHECK
+ENV TX_MONITOR_DIR=${TX_MONITOR_DIR} \
+    TX_MONITOR_APP_DIR=${TX_MONITOR_APP_DIR} \
+    TX_CONTAINER_NAME=${TX_CONTAINER_NAME} \
+    TX_STEP_HOST=${TX_STEP_HOST} \
+    TX_STEPPATH=${TX_STEPPATH} \
+    STEPPATH=${TX_STEPPATH} \
+    TX_DB_HOST=${TX_DB_HOST} \
+    TX_DB_PORT=${TX_DB_PORT} \
+    TX_DB_SHARED_LOCATION=${TX_DB_SHARED_LOCATION} \
+    TX_POSTGRES_USER=${TX_POSTGRES_USER} \
+    TX_POSTGRES_DB=${TX_POSTGRES_DB} \
+    TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME} \
+    TX_APP_PROMETHEUS_VERSION=${TX_APP_PROMETHEUS_VERSION} \
+    TX_APP_ALERTMANAGER_VERSION=${TX_APP_ALERTMANAGER_VERSION} \
+    TX_PROMETHEUS_PORT=${TX_PROMETHEUS_PORT} \
+    TX_ALERTMANAGER_PORT=${TX_ALERTMANAGER_PORT} \
+    MY_HOST_FQDN=${MY_HOST_FQDN} \
+    TX_NODE_EXPORTER_PORT=${TX_NODE_EXPORTER_PORT} \
+    TX_PROMETHEUS_CERT_DUR=${TX_PROMETHEUS_CERT_DUR} \
+    TX_PROMETHEUS_EXP_CHECK=${TX_PROMETHEUS_EXP_CHECK} 
+RUN wget https://dl.smallstep.com/gh-release/cli/gh-release-header/v${TX_APP_STEP_VERSION}/step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rpm -i step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rm -rf step-cli_${TX_APP_STEP_VERSION}_amd64.rpm
+RUN groupadd -g ${USER_GID} -r prometheus1 \
+        && useradd -r prometheus1 -g prometheus1 -u ${USER_UID} -d /home/prometheus1
+RUN usermod -aG $TX_SHARED_GROUP_NAME prometheus1
+RUN mkdir -p /home/prometheus1/cert /home/prometheus1/.ssh /home/prometheus1/.tok /home/prometheus1/.postgresql /home/prometheus1/startup ${TX_MONITOR_APP_DIR}/data ${TX_MONITOR_APP_DIR}/custom ${TX_MONITOR_APP_DIR}/log 
+RUN mkdir -p ${TX_DB_SHARED_LOCATION}
+ADD tx-monitor-prometheus/config/start-prometheus.sh /home/prometheus1/startup/start-prometheus.sh
+ADD tx-monitor-prometheus/config/setup_prom_config.sh /home/prometheus1/startup/setup_prom_config.sh
+ADD tx-monitor-prometheus/config/add-graf-service-acc.sh /home/prometheus1/startup/add-graf-service-acc.sh
+#ADD tx-monitor-prometheus/config/renew-certs.sh /home/prometheus1/startup/renew-certs.sh
+#ADD tx-monitor-prometheus/config/app.ini ${TX_MONITOR_APP_DIR}/custom/app.ini
+WORKDIR ${TX_MONITOR_APP_DIR}
+#RUN wget HTTP_LOCATION:/prometheus/releases/download/v${TX_APP_PROMETHEUS_VERSION}/prometheus-${TX_APP_PROMETHEUS_VERSION}-linux-amd64
+RUN wget -q https://github.com/prometheus/prometheus/releases/download/v${TX_APP_PROMETHEUS_VERSION}/prometheus-${TX_APP_PROMETHEUS_VERSION}.linux-amd64.tar.gz \
+        && tar -zxvf prometheus-${TX_APP_PROMETHEUS_VERSION}.linux-amd64.tar.gz \
+        && rm -rf prometheus-${TX_APP_PROMETHEUS_VERSION}.linux-amd64.tar.gz
+RUN wget -q https://github.com/prometheus/alertmanager/releases/download/v${TX_APP_ALERTMANAGER_VERSION}/alertmanager-${TX_APP_ALERTMANAGER_VERSION}.linux-amd64.tar.gz  \
+        && tar -zxvf alertmanager-${TX_APP_ALERTMANAGER_VERSION}.linux-amd64.tar.gz  \
+        && rm -rf alertmanager-${TX_APP_ALERTMANAGER_VERSION}.linux-amd64.tar.gz
+RUN ln -s alertmanager-${TX_APP_ALERTMANAGER_VERSION}.linux-amd64 alertmanager \
+        && ln -s prometheus-${TX_APP_PROMETHEUS_VERSION}.linux-amd64 prometheus
+RUN chmod 700 /home/prometheus1/.ssh && touch /home/prometheus1/.ssh/authorized_keys && chmod 600 /home/prometheus1/.ssh/authorized_keys
+#RUN mv prometheus-${TX_APP_PROMETHEUS_VERSION}-linux-amd64 prometheus
+RUN chown -R prometheus1:prometheus1 /home/prometheus1 \
+        && chown -R prometheus1:prometheus1 ${TX_DB_SHARED_LOCATION} \
+        && chown -R prometheus1:prometheus1 ${TX_MONITOR_DIR} \
+        && chmod 744 ${TX_MONITOR_APP_DIR} \
+        && chmod 750 /home/prometheus1/startup/*.sh
+ENV PATH="${PATH}:${TX_MONITOR_APP_DIR}"
+USER prometheus1
+WORKDIR /home/prometheus1
+CMD [ "/usr/bin/bash", "-c", "/home/prometheus1/startup/start-prometheus.sh"]

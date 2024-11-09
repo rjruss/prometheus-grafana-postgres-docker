@@ -1,0 +1,5 @@
+include:
+  - tx-monitor-grafana-build-extracted-compose.yml
+  - tx-monitor-node_exporter-build-extracted-compose.yml
+  - tx-monitor-postdb-build-extracted-compose.yml
+  - tx-monitor-prometheus-build-extracted-compose.yml

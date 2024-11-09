@@ -1,0 +1,53 @@
+FROM monitor-img:latest AS monitor-postdb-img
+ARG USER_UID
+ARG USER_GID
+ARG TX_APP_STEP_VERSION
+#
+ARG TX_MONITOR_APP_DIR
+ARG TX_MONITOR_DIR
+ARG TX_CONTAINER_NAME
+ARG TX_ALLOWED_SUBNET
+ARG TX_SHARED_GROUP_NAME
+ARG TX_DB_SHARED_LOCATION
+##
+ARG TX_STEP_HOST
+ARG TX_STEPPATH
+ARG TX_POSTGRES_USER
+ARG TX_POSTGRES_DB
+ARG TX_POST_CERT_DUR
+ARG TX_POST_EXP_CHECK
+##  STEPPATH rquired by step
+ENV TX_MONITOR_APP_DIR=${TX_MONITOR_APP_DIR} \
+    TX_MONITOR_DIR=${TX_MONITOR_DIR} \
+    TX_CONTAINER_NAME=$TX_CONTAINER_NAME \
+    TX_ALLOWED_SUBNET=${TX_ALLOWED_SUBNET} \
+    TX_SHARED_GROUP_NAME=$TX_SHARED_GROUP_NAME \
+    TX_DB_SHARED_LOCATION=$TX_DB_SHARED_LOCATION \
+    TX_STEP_HOST=${TX_STEP_HOST} \
+    TX_STEPPATH=${TX_STEPPATH} \
+    STEPPATH=${TX_STEPPATH} \
+    TX_POSTGRES_USER=${TX_POSTGRES_USER} \
+    TX_POSTGRES_DB=${TX_POSTGRES_DB} \
+    TX_POST_CERT_DUR=${TX_POST_CERT_DUR} \
+    TX_POST_EXP_CHECK=${TX_POST_EXP_CHECK}
+RUN wget https://dl.smallstep.com/gh-release/cli/gh-release-header/v${TX_APP_STEP_VERSION}/step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rpm -i step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rm -rf step-cli_${TX_APP_STEP_VERSION}_amd64.rpm
+RUN groupadd -g ${USER_GID} -r postgres \
+        && useradd -r postgres -g postgres -u ${USER_UID} -d /home/postgres 
+RUN usermod -aG ${TX_SHARED_GROUP_NAME} postgres
+RUN groups postgres
+RUN mkdir -p /home/postgres/.info /home/postgres/.key /home/postgres/cert /home/postgres/startup ${TX_MONITOR_APP_DIR} ${TX_DB_SHARED_LOCATION}
+ADD tx-monitor-postdb/config/start-post.sh /home/postgres/startup/start-post.sh
+RUN chown -R postgres:postgres /home/postgres \
+        && chown -R postgres:postgres ${TX_MONITOR_DIR} \
+        && chown -R postgres:${TX_SHARED_GROUP_NAME} ${TX_DB_SHARED_LOCATION} \
+        && chmod 750 /home/postgres/startup/start-post.sh
+RUN dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm \
+        && dnf -qy module disable postgresql \
+        && dnf install -y postgresql16-server
+ENV PATH="${PATH}:/usr/pgsql-16/bin"
+USER postgres
+WORKDIR /home/postgres
+CMD [ "/usr/bin/bash", "-c", "/home/postgres/startup/start-post.sh"]
+

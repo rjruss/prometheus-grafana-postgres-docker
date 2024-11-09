@@ -1,0 +1,64 @@
+FROM monitor-img:latest AS monitor-grafana-img
+ARG USER_UID
+ARG USER_GID
+ARG TX_APP_STEP_VERSION
+ARG TX_APP_GRAFANA_VERSION
+#
+ARG TX_MONITOR_DIR
+ARG TX_MONITOR_APP_DIR
+ARG TX_CONTAINER_NAME
+ARG TX_GRAFANA_PORT
+ARG TX_STEP_HOST
+ARG TX_STEPPATH
+ARG TX_DB_HOST
+ARG TX_DB_PORT
+ARG TX_DB_SHARED_LOCATION
+ARG TX_POSTGRES_USER
+ARG TX_POSTGRES_DB
+ARG TX_SHARED_GROUP_NAME
+#grafana cert 8h for 8 hours
+ARG TX_GRAFANA_CERT_DUR
+#a certificate "needs renewal" when it has passed 2% of its allotted lifetime.
+ARG TX_GRAFANA_EXP_CHECK
+ENV TX_MONITOR_DIR=${TX_MONITOR_DIR} \
+    TX_MONITOR_APP_DIR=${TX_MONITOR_APP_DIR} \
+    TX_CONTAINER_NAME=${TX_CONTAINER_NAME} \
+    TX_GRAFANA_PORT=${TX_GRAFANA_PORT} \
+    TX_STEP_HOST=${TX_STEP_HOST} \
+    TX_STEPPATH=${TX_STEPPATH} \
+    STEPPATH=${TX_STEPPATH} \
+    TX_DB_HOST=${TX_DB_HOST} \
+    TX_DB_PORT=${TX_DB_PORT} \
+    TX_DB_SHARED_LOCATION=${TX_DB_SHARED_LOCATION} \
+    TX_POSTGRES_USER=${TX_POSTGRES_USER} \
+    TX_POSTGRES_DB=${TX_POSTGRES_DB} \
+    TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME} \
+    TX_APP_GRAFANA_VERSION=${TX_APP_GRAFANA_VERSION} \
+    TX_GRAFANA_CERT_DUR=${TX_GRAFANA_CERT_DUR} \
+    TX_GRAFANA_EXP_CHECK=${TX_GRAFANA_EXP_CHECK} 
+RUN wget https://dl.smallstep.com/gh-release/cli/gh-release-header/v${TX_APP_STEP_VERSION}/step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rpm -i step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rm -rf step-cli_${TX_APP_STEP_VERSION}_amd64.rpm
+RUN groupadd -g ${USER_GID} -r grafana1 \
+        && useradd -r grafana1 -g grafana1 -u ${USER_UID} -d /home/grafana1
+RUN usermod -aG $TX_SHARED_GROUP_NAME grafana1
+RUN mkdir -p /home/grafana1/cert /home/grafana1/.ssh /home/grafana1/.tok /home/grafana1/.postgresql /home/grafana1/startup ${TX_MONITOR_APP_DIR}/data ${TX_MONITOR_APP_DIR}/custom ${TX_MONITOR_APP_DIR}/log 
+RUN mkdir -p ${TX_DB_SHARED_LOCATION}
+ADD tx-monitor-grafana/config/start-grafana.sh /home/grafana1/startup/start-grafana.sh
+#ADD tx-monitor-grafana/config/renew-certs.sh /home/grafana1/startup/renew-certs.sh
+#ADD tx-monitor-grafana/config/app.ini ${TX_MONITOR_APP_DIR}/custom/app.ini
+WORKDIR ${TX_MONITOR_APP_DIR}
+RUN wget -q https://dl.grafana.com/enterprise/release/grafana-enterprise-${TX_APP_GRAFANA_VERSION}.linux-amd64.tar.gz \
+        && tar -zxvf grafana-enterprise-${TX_APP_GRAFANA_VERSION}.linux-amd64.tar.gz \
+        && rm -rf grafana-enterprise-${TX_APP_GRAFANA_VERSION}.linux-amd64.tar.gz
+RUN chmod 700 /home/grafana1/.ssh && touch /home/grafana1/.ssh/authorized_keys && chmod 600 /home/grafana1/.ssh/authorized_keys
+#RUN mv grafana-${TX_APP_GRAFANA_VERSION}-linux-amd64 grafana
+RUN chown -R grafana1:grafana1 /home/grafana1 \
+        && chown -R grafana1:grafana1 ${TX_DB_SHARED_LOCATION} \
+        && chown -R grafana1:grafana1 ${TX_MONITOR_DIR} \
+        && chmod 744 ${TX_MONITOR_APP_DIR} \
+        && chmod 750 /home/grafana1/startup/*.sh
+ENV PATH="${PATH}:${TX_MONITOR_APP_DIR}"
+USER grafana1
+WORKDIR /home/grafana1
+CMD [ "/usr/bin/bash", "-c", "/home/grafana1/startup/start-grafana.sh"]

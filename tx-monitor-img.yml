@@ -1,0 +1,18 @@
+services:
+  tx-monitor-build:
+    container_name: monitor-run
+    image: monitor-img
+    build:
+      dockerfile: tx-monitor-dockerfile
+      target: monitor-img
+      args:
+        #BASE BUILD
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_GID}
+        - TX_SHARED_ENV_GROUP=${TX_SHARED_ENV_GROUP}
+        - TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME}
+        - TX_SHARED_DIR=${TX_SHARED_DIR}
+        - TX_AGEDIR=${TX_AGEDIR}
+        - TX_AGEDIR_KEYS=${TX_AGEDIR_KEYS}
+        - TX_AGEDIR_INFO=${TX_AGEDIR_INFO}
+        - TX_APP_STEP_VERSION=${TX_APP_STEP_VERSION}

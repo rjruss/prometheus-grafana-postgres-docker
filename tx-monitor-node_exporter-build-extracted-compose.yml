@@ -1,0 +1,58 @@
+services:
+  tx-monitor-node_exporter-build:
+    container_name: monitor-node_exporter-run
+    image: monitor-node_exporter-img
+    build:
+      dockerfile: tx-monitor-node_exporter-build-split-docker
+      target: monitor-node_exporter-img
+      args:
+        #BASE BUILD
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_GID}
+        - TX_SHARED_ENV_GROUP=${TX_SHARED_ENV_GROUP}
+        - TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME}
+        - TX_SHARED_DIR=${TX_SHARED_DIR}
+        - TX_AGEDIR=${TX_AGEDIR}
+        - TX_AGEDIR_KEYS=${TX_AGEDIR_KEYS}
+        - TX_AGEDIR_INFO=${TX_AGEDIR_INFO}
+        - TX_APP_STEP_VERSION=${TX_APP_STEP_VERSION}
+        - TX_APP_NODE_EXPORTER_VERSION=${TX_APP_NODE_EXPORTER_VERSION}
+        #Container Specific
+        - TX_MONITOR_DIR=/srv
+        - TX_MONITOR_APP_DIR=/srv/node_exporter
+        - TX_STEP_HOST=${TX_STEP_HOST}
+        - TX_STEPPATH=/srv/node_exporter/.step
+        - TX_DB_HOST=monitor-postdb-run
+        - TX_DB_PORT=5432
+        - TX_POSTGRES_USER=${TX_POSTGRES_USER}
+        - TX_POSTGRES_DB=${TX_POSTGRES_DB}
+        - TX_DB_SHARED_LOCATION=/mnt/shared
+        #       - TX_NODE_EXPORTER_ADMIN_USER=${TX_NODE_EXPORTER_ADMIN_USER}
+        #       - TX_NODE_EXPORTER_USER_EMAIL=${TX_NODE_EXPORTER_USER_EMAIL}
+        - MY_HOST_FQDN=${MY_HOST_FQDN}
+        - TX_NODE_EXPORTER_PORT=${TX_NODE_EXPORTER_PORT}
+        - TX_NODE_EXPORTER_CERT_DUR=1h
+        - TX_CONTAINER_NAME=monitor-node_exporter-run
+        - TX_NODE_EXPORTER_EXP_CHECK=45%
+    hostname: ${NODE_EXPORTER_HOST}
+    domainname: ${DOMAIN}
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - tx_monitor_keys_vol1:/srv/shared/.age/.keys:ro
+      - tx_monitor_info_vol1:/srv/shared/.age/.info:ro
+      - tx_monitor_node_exporter_vol1:/srv
+      - '/:/host:ro,rslave'
+    tty: true
+volumes:
+  tx_monitor_keys_vol1:
+    external: true
+  tx_monitor_info_vol1:
+    external: true
+  tx_monitor_node_exporter_vol1:
+    external: true
+  shared:
+networks:
+  tx-monitor-net1:
+    external: true

@@ -1,0 +1,64 @@
+services:
+  tx-monitor-[&replace_lower_app_name&]-build:
+    container_name: monitor-[&replace_lower_app_name&]-run
+    image: monitor-[&replace_lower_app_name&]-img
+    build:
+      dockerfile: tx-monitor-[&replace_lower_app_name&]-build-split-docker
+      target: monitor-[&replace_lower_app_name&]-img
+      args:
+        #BASE BUILD
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_GID}
+        - TX_SHARED_ENV_GROUP=${TX_SHARED_ENV_GROUP}
+        - TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME}
+        - TX_SHARED_DIR=${TX_SHARED_DIR}
+        - TX_AGEDIR=${TX_AGEDIR}
+        - TX_AGEDIR_KEYS=${TX_AGEDIR_KEYS}
+        - TX_AGEDIR_INFO=${TX_AGEDIR_INFO}
+        - TX_APP_STEP_VERSION=${TX_APP_STEP_VERSION}
+        - TX_APP_[&REPLACE_UPPER_APP_NAME&]_VERSION=${TX_APP_[&REPLACE_UPPER_APP_NAME&]_VERSION}
+        #Container Specific
+        - TX_MONITOR_DIR=/srv
+        - TX_MONITOR_APP_DIR=/srv/[&replace_lower_app_name&]
+        - TX_STEP_HOST=${TX_STEP_HOST}
+        - TX_STEPPATH=/srv/[&replace_lower_app_name&]/.step
+        - TX_DB_HOST=monitor-postdb-run
+        - TX_DB_PORT=5432
+        - TX_POSTGRES_USER=${TX_POSTGRES_USER}
+        - TX_POSTGRES_DB=${TX_POSTGRES_DB}
+        - TX_DB_SHARED_LOCATION=/mnt/shared
+        #       - TX_[&REPLACE_UPPER_APP_NAME&]_ADMIN_USER=${TX_[&REPLACE_UPPER_APP_NAME&]_ADMIN_USER}
+        #       - TX_[&REPLACE_UPPER_APP_NAME&]_USER_EMAIL=${TX_[&REPLACE_UPPER_APP_NAME&]_USER_EMAIL}
+        - TX_[&REPLACE_UPPER_APP_NAME&]_CERT_DUR=48h
+        - TX_CONTAINER_NAME=monitor-[&replace_lower_app_name&]-run
+        - TX_[&REPLACE_UPPER_APP_NAME&]_EXP_CHECK=85%
+    hostname: ${[&REPLACE_UPPER_APP_NAME&]_HOST}
+    domainname: ${DOMAIN}
+#   ports:
+#     - "8010:8010"
+    networks:
+      - tx-monitor-net1
+#   depends_on:
+#     tx-monitor-step-build:
+#       condition: service_started
+#     tx-monitor-postdb-build:
+#       condition: service_healthy
+    volumes:
+      - tx_monitor_keys_vol1:/srv/shared/.age/.keys:ro
+      - tx_monitor_info_vol1:/srv/shared/.age/.info:ro
+      - tx_monitor_[&replace_lower_app_name&]_vol1:/srv
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - shared:/mnt/shared
+    tty: true
+volumes:
+  tx_monitor_keys_vol1:
+    external: true
+  tx_monitor_info_vol1:
+    external: true
+  tx_monitor_[&replace_lower_app_name&]_vol1:
+    external: true
+  shared:
+networks:
+  tx-monitor-net1:
+    external: true

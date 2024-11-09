@@ -1,0 +1,59 @@
+FROM monitor-img:latest AS monitor-[&replace-app-name&]-img
+ARG USER_UID
+ARG USER_GID
+ARG TX_APP_STEP_VERSION
+ARG TX_APP_[&REPLACE-APP-NAME&]_VERSION
+#
+ARG TX_MONITOR_DIR
+ARG TX_MONITOR_APP_DIR
+ARG TX_CONTAINER_NAME
+ARG TX_STEP_HOST
+ARG TX_STEPPATH
+ARG TX_DB_HOST
+ARG TX_DB_PORT
+ARG TX_DB_SHARED_LOCATION
+ARG TX_POSTGRES_USER
+ARG TX_POSTGRES_DB
+ARG TX_SHARED_GROUP_NAME
+#[&replace-app-name&] cert 8h for 8 hours
+ARG TX_[&REPLACE-APP-NAME&]_CERT_DUR
+#a certificate "needs renewal" when it has passed 2% of its allotted lifetime.
+ARG TX_[&REPLACE-APP-NAME&]_EXP_CHECK
+ENV TX_MONITOR_DIR=${TX_MONITOR_DIR} \
+    TX_MONITOR_APP_DIR=${TX_MONITOR_APP_DIR} \
+    TX_CONTAINER_NAME=${TX_CONTAINER_NAME} \
+    TX_STEP_HOST=${TX_STEP_HOST} \
+    TX_STEPPATH=${TX_STEPPATH} \
+    STEPPATH=${TX_STEPPATH} \
+    TX_DB_HOST=${TX_DB_HOST} \
+    TX_DB_PORT=${TX_DB_PORT} \
+    TX_DB_SHARED_LOCATION=${TX_DB_SHARED_LOCATION} \
+    TX_POSTGRES_USER=${TX_POSTGRES_USER} \
+    TX_POSTGRES_DB=${TX_POSTGRES_DB} \
+    TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME} \
+    TX_[&REPLACE-APP-NAME&]_CERT_DUR=${TX_[&REPLACE-APP-NAME&]_CERT_DUR} \
+    TX_[&REPLACE-APP-NAME&]_EXP_CHECK=${TX_[&REPLACE-APP-NAME&]_EXP_CHECK} 
+RUN wget https://dl.smallstep.com/gh-release/cli/gh-release-header/v${TX_APP_STEP_VERSION}/step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rpm -i step-cli_${TX_APP_STEP_VERSION}_amd64.rpm \
+        && rm -rf step-cli_${TX_APP_STEP_VERSION}_amd64.rpm
+RUN groupadd -g ${USER_GID} -r [&replace-user-name&] \
+        && useradd -r [&replace-user-name&] -g [&replace-user-name&] -u ${USER_UID} -d /home/[&replace-user-name&]
+RUN usermod -aG $TX_SHARED_GROUP_NAME [&replace-user-name&]
+RUN mkdir -p /home/[&replace-user-name&]/cert /home/[&replace-user-name&]/.ssh /home/[&replace-user-name&]/.tok /home/[&replace-user-name&]/.postgresql /home/[&replace-user-name&]/startup ${TX_MONITOR_APP_DIR}/data ${TX_MONITOR_APP_DIR}/custom ${TX_MONITOR_APP_DIR}/log 
+RUN mkdir -p ${TX_DB_SHARED_LOCATION}
+ADD tx-monitor-[&replace-app-name&]/config/start-[&replace-app-name&].sh /home/[&replace-user-name&]/startup/start-[&replace-app-name&].sh
+#ADD tx-monitor-[&replace-app-name&]/config/renew-certs.sh /home/[&replace-user-name&]/startup/renew-certs.sh
+#ADD tx-monitor-[&replace-app-name&]/config/app.ini ${TX_MONITOR_APP_DIR}/custom/app.ini
+WORKDIR ${TX_MONITOR_APP_DIR}
+#RUN wget HTTP_LOCATION:/[&replace-app-name&]/releases/download/v${TX_APP_[&REPLACE-APP-NAME&]_VERSION}/[&replace-app-name&]-${TX_APP_[&REPLACE-APP-NAME&]_VERSION}-linux-amd64
+RUN chmod 700 /home/[&replace-user-name&]/.ssh && touch /home/[&replace-user-name&]/.ssh/authorized_keys && chmod 600 /home/[&replace-user-name&]/.ssh/authorized_keys
+#RUN mv [&replace-app-name&]-${TX_APP_[&REPLACE-APP-NAME&]_VERSION}-linux-amd64 [&replace-app-name&]
+RUN chown -R [&replace-user-name&]:[&replace-user-name&] /home/[&replace-user-name&] \
+        && chown -R [&replace-user-name&]:[&replace-user-name&] ${TX_DB_SHARED_LOCATION} \
+        && chown -R [&replace-user-name&]:[&replace-user-name&] ${TX_MONITOR_DIR} \
+        && chmod 744 ${TX_MONITOR_APP_DIR} \
+        && chmod 750 /home/[&replace-user-name&]/startup/*.sh
+ENV PATH="${PATH}:${TX_MONITOR_APP_DIR}"
+USER [&replace-user-name&]
+WORKDIR /home/[&replace-user-name&]
+CMD [ "/usr/bin/bash", "-c", "/home/[&replace-user-name&]/startup/start-[&replace-app-name&].sh"]

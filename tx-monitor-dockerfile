@@ -1,0 +1,49 @@
+ARG USER_UID
+ARG USER_GID
+ARG TX_SHARED_ENV_GROUP
+ARG TX_SHARED_GROUP_NAME
+ARG TX_SHARED_DIR
+ARG TX_AGEDIR
+ARG TX_AGEDIR_KEYS
+ARG TX_AGEDIR_INFO
+ARG TX_APP_STEP_VERSION
+
+FROM rockylinux:9.3 AS monitor-img
+ARG USER_UID
+ARG USER_GID
+ARG TX_MONITOR_APP_DIR
+ARG TX_SHARED_GROUP_NAME
+ARG TX_SHARED_ENV_GROUP
+ARG TX_SHARED_DIR
+ARG TX_AGEDIR
+ARG TX_AGEDIR_KEYS
+ARG TX_AGEDIR_INFO
+
+#ENV USER_UID=${USER_UID} \
+#    USER_GID=${USER_GID} \
+ENV TX_MONITOR_APP_DIR=${TX_MONITOR_APP_DIR} \
+    TX_SHARED_GROUP_NAME=${TX_SHARED_GROUP_NAME} \
+    TX_SHARED_ENV_GROUP=${TX_SHARED_ENV_GROUP} \
+    TX_SHARED_DIR=${TX_SHARED_DIR} \
+    TX_AGEDIR=${TX_AGEDIR} \
+    TX_AGEDIR_KEYS=${TX_AGEDIR_KEYS} \
+    TX_AGEDIR_INFO=${TX_AGEDIR_INFO} \
+    TX_BOLD='\033[1m' \
+    TX_RESET='\033[0m'
+RUN dnf -y update && yum install -y libxcrypt-compat procps wget unzip python3 augeas-libs jq openssl tmux nc pinentry iproute git glibc-locale-source glibc-langpack-en
+RUN localedef -i en_US -f UTF-8 en_US.UTF-8
+RUN echo "LANG=en_US.UTF-8" > /etc/locale.conf
+ADD ./tx-monitor-image/config/shared/* $TX_SHARED_DIR/.
+RUN groupadd -g $TX_SHARED_ENV_GROUP $TX_SHARED_GROUP_NAME
+ENV PATH="${PATH}:$TX_SHARED_DIR:$TX_AGEDIR"
+#ENV LANG C.UTF-8
+#ENV LC_ALL C.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+RUN mkdir -p $TX_AGEDIR $TX_AGEDIR_KEYS $TX_AGEDIR_INFO
+RUN chmod +rx $TX_SHARED_DIR/*sh
+RUN cd $TX_AGEDIR && curl -s -L -o age.tgz https://dl.filippo.io/age/latest?for=linux/amd64 \
+        && tar -xzf  age.tgz --strip-components=1 \
+        && rm -f age.tgz
+
